@@ -19,7 +19,6 @@ interface IOptions {
 
 export default function (opts: IOptions) {
   let current = 0
-  let nextImgIdx = current + 1
 
   const vertex = /* glsl*/ ` 
   varying vec2 vUv;
@@ -78,16 +77,19 @@ export default function (opts: IOptions) {
   const parent = opts.parent
   const dispImage = opts.displacementImage
   const images = opts.images
-  // const image1 = opts.image1;
-  // const image2 = opts.image2;
 
-  // optinal attributes
+  // optional attributes
   const intensity = opts.intensity ?? 1
   const angle = opts.angle ?? Math.PI / 4
   const imagesRatio = opts.imageRatio ?? 1
   const speedIn = opts.speedIn ?? opts.speed ?? 1.6
   const speedOut = opts.speedOut ?? opts.speed ?? 1.2
   const easing = opts.easing ?? 'expo.inOut'
+
+  if (!parent) {
+    console.warn('Parent missing')
+    return
+  }
 
   const scene = new THREE.Scene()
   const camera = new THREE.OrthographicCamera(
@@ -122,20 +124,13 @@ export default function (opts: IOptions) {
   const disp = loader.load(dispImage, render)
   disp.magFilter = disp.minFilter = THREE.LinearFilter
 
-  interface IImgsTextures {
-    [key: string]: {
-      type: 'f'
-      value: any
-    }
-  }
-  const imgsTextures: IImgsTextures = images.reduce((accumulator, img, i) => {
-    const texture = loader.load(img, render)
+  const imgsTextures = images.map((img) => {
+    const texture = loader.load(img)
+    texture.magFilter = THREE.LinearFilter
+    texture.minFilter = THREE.LinearFilter
     return {
-      ...accumulator,
-      ['texture' + String(i)]: {
-        type: 'f',
-        value: texture,
-      },
+      type: 'f',
+      value: texture,
     }
   }, {})
 
@@ -174,6 +169,14 @@ export default function (opts: IOptions) {
       type: 't',
       value: disp,
     },
+    texture1: {
+      type: 'f',
+      value: imgsTextures[0],
+    },
+    texture2: {
+      type: 'f',
+      value: imgsTextures[1],
+    },
     res: {
       type: 'vec4',
       value: new THREE.Vector4(parent.offsetWidth, parent.offsetHeight, a1, a2),
@@ -182,14 +185,10 @@ export default function (opts: IOptions) {
       type: 'f',
       value: window.devicePixelRatio,
     },
-    currImg: {
-      type: 'int',
-      value: 2,
-    },
   }
 
   const mat = new THREE.ShaderMaterial({
-    uniforms: { ...imgsTextures, ...uniforms },
+    uniforms,
     vertexShader: vertex,
     fragmentShader: fragment,
     transparent: true,
@@ -204,10 +203,9 @@ export default function (opts: IOptions) {
   const object = new THREE.Mesh(geometry, mat)
   scene.add(object)
 
-  console.log(imgsTextures)
   function next() {
-    let len = Object.keys(imgsTextures).length
-    const nextTexture = imgsTextures['texture' + ((current + 1) % len)]
+    const len = imgsTextures.length
+    const nextTexture = imgsTextures[(current + 1) % len]
     console.log(nextTexture)
     mat.uniforms.texture2 = nextTexture
     console.log('img:', current)
@@ -225,16 +223,6 @@ export default function (opts: IOptions) {
       },
     })
   }
-
-  //   function transitionOut() {
-  //     gsap.to(mat.uniforms.dispFactor, {
-  //       value: 0,
-  //       duration: speedOut,
-  //       ease: easing,
-  //       onUpdate: render,
-  //       onComplete: render,
-  //     })
-  //   }
 
   window.addEventListener('resize', () => {
     if (parent.offsetHeight / parent.offsetWidth < imageAspect) {
@@ -254,6 +242,8 @@ export default function (opts: IOptions) {
     renderer.setSize(parent.offsetWidth, parent.offsetHeight)
     render()
   })
+  //   render()
+  //   next()
 
   return {
     next,

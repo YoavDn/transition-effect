@@ -10,11 +10,11 @@ const myAnimtaion = transitionEffect({
   parent: app,
   images: [img1, img2, img3],
   displacementImage: disp,
-  easing: 'expo.out',
-  speed: 1.2,
+  easing: 'expo.inOut',
+  speed: 2.2,
   intensity: -0.65,
 })
 
-app.addEventListener('click', () => {
+setInterval(() => {
   myAnimtaion.next()
-})
+}, 3000)
